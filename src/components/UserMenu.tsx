@@ -47,20 +47,18 @@ export default function UserMenu() {
         className="flex items-center focus:outline-none"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <div className="flex items-center">
-          <div className="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center text-white overflow-hidden">
-            {user?.avatar_url ? (
+        <div className="flex items-center">          <div className="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center text-white overflow-hidden">
+            {user?.user_metadata?.avatar_url ? (
               <img 
-                src={user.avatar_url} 
+                src={user.user_metadata.avatar_url} 
                 alt="Profile"
                 className="h-full w-full object-cover"
               />
             ) : (
               <span>{user?.email ? user.email[0].toUpperCase() : 'U'}</span>
             )}
-          </div>
-          <span className="hidden md:block ml-2 text-sm text-gray-700">
-            {user?.full_name || user?.email}
+          </div>          <span className="hidden md:block ml-2 text-sm text-gray-700">
+            {user?.user_metadata?.full_name || user?.email}
           </span>
           <ChevronDown 
             className={`hidden md:block ml-2 h-4 w-4 text-gray-400 transition-transform duration-200 ${
@@ -73,9 +71,8 @@ export default function UserMenu() {
       {/* Dropdown menu */}
       {isOpen && (
         <div className="absolute right-0 mt-2 w-48 py-1 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-          <div className="px-4 py-2 border-b border-gray-100">
-            <p className="text-sm font-medium text-gray-900 truncate">
-              {user?.full_name || 'User'}
+          <div className="px-4 py-2 border-b border-gray-100">            <p className="text-sm font-medium text-gray-900 truncate">
+              {user?.user_metadata?.full_name || 'User'}
             </p>
             <p className="text-xs text-gray-500 truncate">
               {user?.email}
