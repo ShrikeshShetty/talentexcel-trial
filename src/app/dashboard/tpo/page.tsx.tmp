@@ -1,0 +1,268 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import supabase from '@/lib/supabaseClient';
+import { Users, Briefcase, Building, AlertCircle, GraduationCap, BarChart2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+interface Student {
+  id: string;
+  full_name: string;
+  email: string;
+  profile: {
+    college: string;
+    degree: string;
+  };
+}
+
+interface JobListing {
+  id: string;
+  title: string;
+  employer: {
+    company_name: string;
+  };
+  location: string;
+  type: string;
+  created_at: string;
+}
+
+interface Placement {
+  id: string;
+  student: {
+    full_name: string;
+  };
+  job: {
+    title: string;
+    employer: {
+      company_name: string;
+    };
+  };
+  created_at: string;
+}
+
+export default function Page() {
+  const { user, loading: authLoading } = useAuth();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [jobListings, setJobListings] = useState<JobListing[]>([]);
+  const [placements, setPlacements] = useState<Placement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [tpoProfile, setTpoProfile] = useState<any>(null);
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    totalEmployers: 0,
+    totalJobs: 0,
+    totalPlacements: 0
+  });
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      fetchTPOData();
+    }
+  }, [user, authLoading]);
+
+  const fetchTPOData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch students
+      const { data: studentsData } = await supabase
+        .from('users')
+        .select(`
+          id,
+          full_name,
+          email,
+          student_profiles!inner(
+            college,
+            degree
+          )
+        `)
+        .eq('role', 'student')
+        .limit(5);
+
+      if (studentsData) {
+        setStudents(studentsData as Student[]);
+      }
+
+      // Fetch job listings
+      const { data: jobsData } = await supabase
+        .from('job_listings')
+        .select(`
+          id,
+          title,
+          location,
+          type,
+          created_at,
+          employers!inner(company_name)
+        `)
+        .limit(5);
+
+      if (jobsData) {
+        setJobListings(jobsData as JobListing[]);
+      }
+
+      // Fetch placements
+      const { data: placementsData } = await supabase
+        .from('placements')
+        .select(`
+          id,
+          created_at,
+          users!inner(full_name),
+          job_listings!inner(
+            title,
+            employers!inner(company_name)
+          )
+        `)
+        .limit(5);
+
+      if (placementsData) {
+        setPlacements(placementsData as Placement[]);
+      }
+
+      // Fetch stats
+      const [
+        { count: studentsCount },
+        { count: employersCount },
+        { count: jobsCount },
+        { count: placementsCount }
+      ] = await Promise.all([
+        supabase.from('users').select('id', { count: 'exact' }).eq('role', 'student'),
+        supabase.from('users').select('id', { count: 'exact' }).eq('role', 'employer'),
+        supabase.from('job_listings').select('id', { count: 'exact' }),
+        supabase.from('placements').select('id', { count: 'exact' })
+      ]);
+
+      setStats({
+        totalStudents: studentsCount || 0,
+        totalEmployers: employersCount || 0,
+        totalJobs: jobsCount || 0,
+        totalPlacements: placementsCount || 0
+      });
+
+    } catch (error) {
+      console.error('Error fetching TPO data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900">Access Denied</h2>
+          <p className="mt-2 text-gray-600">Please sign in to access this page.</p>
+          <Link 
+            href="/login"
+            className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700"
+          >
+            Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Stats Cards */}
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Users className="h-6 w-6 text-gray-400" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500">Total Students</dt>
+                  <dd className="flex items-baseline">
+                    <div className="text-2xl font-semibold text-gray-900">{stats.totalStudents}</div>
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Similar cards for other stats */}
+      </div>
+
+      {/* Recent Data Sections */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Students Section */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 border-b border-gray-200">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Recent Students</h3>
+          </div>
+          <ul className="divide-y divide-gray-200">
+            {students.map((student) => (
+              <li key={student.id} className="px-4 py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{student.full_name}</p>
+                    <p className="text-sm text-gray-500">{student.email}</p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Job Listings Section */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 border-b border-gray-200">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Recent Job Listings</h3>
+          </div>
+          <ul className="divide-y divide-gray-200">
+            {jobListings.map((job) => (
+              <li key={job.id} className="px-4 py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{job.title}</p>
+                    <p className="text-sm text-gray-500">{job.employer.company_name}</p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Placements Section */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-4 py-5 border-b border-gray-200">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Recent Placements</h3>
+        </div>
+        <ul className="divide-y divide-gray-200">
+          {placements.map((placement) => (
+            <li key={placement.id} className="px-4 py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {placement.student.full_name}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {placement.job.title} at {placement.job.employer.company_name}
+                  </p>
+                </div>
+                <p className="text-sm text-gray-500">
+                  {new Date(placement.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
